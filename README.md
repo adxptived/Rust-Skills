@@ -16,30 +16,44 @@ These skills provide AI agents with deep knowledge of Rust idioms, patterns, and
 
 ## Installation
 
-### Global (All Projects)
+### Quick Install (npx)
 
 ```bash
-# Linux/macOS
-cp -r skills/* ~/.agents/skills/
-
-# Windows
-xcopy /E /I skills %USERPROFILE%\.agents\skills
+npx add-skill adxptived/Rust-Skills
 ```
 
-### Local (Single Project)
+### Git Clone
 
 ```bash
-# In your project root
-mkdir -p .agents/skills
-cp -r skills/* .agents/skills/
+# Global (all projects)
+git clone https://github.com/adxptived/Rust-Skills.git ~/.agents/skills/rust-skills
+
+# Local (current project only)
+git clone https://github.com/adxptived/Rust-Skills.git .agents/skills/rust-skills
+
+# For OpenCode
+git clone https://github.com/adxptived/Rust-Skills.git .opencode/skills/rust-skills
+
+# For Claude
+git clone https://github.com/adxptived/Rust-Skills.git .claude/skills/rust-skills
+```
+
+### Manual Download
+
+```bash
+# Download and extract
+curl -L https://github.com/adxptived/Rust-Skills/archive/main.tar.gz | tar -xz
+cp -r Rust-Skills-main/skills/* ~/.agents/skills/
 ```
 
 ### Specific Skills Only
 
 ```bash
-# Install only what you need
-cp -r skills/rust-mastery ~/.agents/skills/
-cp -r skills/rust-async ~/.agents/skills/
+# Clone with sparse checkout
+git clone --filter=blob:none --sparse https://github.com/adxptived/Rust-Skills.git
+cd Rust-Skills
+git sparse-checkout set skills/rust-mastery skills/rust-async
+cp -r skills/* ~/.agents/skills/
 ```
 
 ## Usage
