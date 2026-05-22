@@ -19,7 +19,7 @@ These skills provide AI agents with deep knowledge of Rust idioms, patterns, and
 ### Quick Install (npx)
 
 ```bash
-npx add-skill adxptived/Rust-Skills
+npx skills add adxptived/Rust-Skills
 ```
 
 ### Git Clone
