@@ -525,10 +525,154 @@ async fn good() {
 }
 ```
 
+## Structured Concurrency: JoinSet
+
+Manage a dynamic set of tasks with automatic cleanup:
+
+```rust
+use tokio::task::JoinSet;
+
+async fn process_all(items: Vec<Item>) -> Vec<Result<Output, Error>> {
+    let mut set = JoinSet::new();
+
+    for item in items {
+        set.spawn(async move { process(item).await });
+    }
+
+    let mut results = Vec::new();
+    while let Some(result) = set.join_next().await {
+        results.push(result.unwrap()); // unwrap JoinError (panic propagation)
+    }
+    results
+}
+
+// With concurrency limit
+async fn limited_parallel(items: Vec<Item>, limit: usize) {
+    let mut set = JoinSet::new();
+
+    for item in items {
+        // Keep at most `limit` tasks running
+        if set.len() >= limit {
+            set.join_next().await;
+        }
+        set.spawn(async move { process(item).await });
+    }
+
+    // Drain remaining
+    while set.join_next().await.is_some() {}
+}
+```
+
+## Cancellation
+
+### CancellationToken (tokio-util)
+
+```rust
+use tokio_util::sync::CancellationToken;
+use tokio::time::{sleep, Duration};
+
+#[tokio::main]
+async fn main() {
+    let token = CancellationToken::new();
+
+    // Worker task respects cancellation
+    let worker_token = token.clone();
+    let worker = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = worker_token.cancelled() => {
+                    println!("Worker shutting down cleanly");
+                    break;
+                }
+                _ = do_work() => {}
+            }
+        }
+    });
+
+    // Let it run for 2 seconds, then cancel
+    sleep(Duration::from_secs(2)).await;
+    token.cancel(); // Notifies all clones
+
+    worker.await.unwrap();
+}
+
+// Dropping handle vs cancelling:
+let handle = tokio::spawn(async { loop { work().await; } });
+drop(handle);        // Task CONTINUES in background (detached)!
+token.cancel();      // Cooperative: task stops when it checks
+```
+
+### Timeout as Cancellation
+
+```rust
+use tokio::time::{timeout, Duration};
+
+// Task is dropped (cancelled) if it doesn't finish in time
+match timeout(Duration::from_secs(5), long_running_task()).await {
+    Ok(result) => println!("Completed: {:?}", result),
+    Err(_elapsed) => println!("Timed out — task was cancelled"),
+}
+```
+
+## Anti-Patterns
+
+### Holding Locks Across Await
+
+```rust
+// BAD: Lock held across await
+let guard = mutex.lock().await;
+some_async_operation().await; // Lock still held!
+drop(guard);
+
+// GOOD: Clone and release
+let data = {
+    let guard = mutex.lock().await;
+    guard.clone()
+};
+some_async_operation_with(data).await;
+```
+
+### Blocking in Async Context
+
+```rust
+// BAD: Blocks the async runtime
+async fn bad() {
+    std::thread::sleep(Duration::from_secs(1)); // Blocks!
+    std::fs::read_to_string("file.txt"); // Blocks!
+}
+
+// GOOD: Use async equivalents
+async fn good() {
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::fs::read_to_string("file.txt").await;
+}
+
+// Or spawn_blocking for unavoidable blocking
+let result = tokio::task::spawn_blocking(|| {
+    blocking_library_call()
+}).await?;
+```
+
+### Creating Runtime in Async Context
+
+```rust
+// BAD: Nested runtime
+async fn bad() {
+    tokio::runtime::Runtime::new().unwrap()
+        .block_on(async { ... }); // Panic or deadlock!
+}
+
+// GOOD: Just await
+async fn good() {
+    some_future().await;
+}
+```
+
 ## Debugging Tips
 
 1. **Use `#[tokio::test]`** for async tests
 2. **Enable tracing** with `tracing` crate
-3. **Use `tokio-console`** for runtime inspection
+3. **Use `tokio-console`** for runtime inspection (`cargo install tokio-console`)
 4. **Check for dropped futures** (no `.await`)
 5. **Look for blocking calls** in async code
+6. **`CancellationToken` over `Arc<AtomicBool>`** — atomic flags don't wake sleeping tasks

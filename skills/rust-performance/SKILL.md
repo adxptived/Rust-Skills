@@ -421,6 +421,82 @@ fn rarely_used() { ... }
 fn simd_process(data: &[f32]) { ... }
 ```
 
+## Arena Allocators
+
+For batch allocations freed together (parsers, request processing):
+
+```rust
+use bumpalo::Bump;
+
+// All allocations from one arena — freed together when arena drops
+fn parse<'a>(input: &str, arena: &'a Bump) -> Vec<&'a Node> {
+    tokenize(input).map(|t| arena.alloc(Node::new(t))).collect()
+}
+
+// Per-request: allocate freely, free everything at once
+async fn handle(req: Request) -> Response {
+    let arena = Bump::new();
+    let parsed = parse(&req.body, &arena);
+    generate_response(parsed)
+} // arena dropped: all parsed nodes freed in one dealloc
+```
+
+## SmallVec — Inline Small Collections
+
+```rust
+use smallvec::SmallVec;
+
+// Up to 4 items stored inline (stack), spills to heap beyond that
+let mut tags: SmallVec<[&str; 4]> = SmallVec::new();
+tags.push("performance");
+tags.push("rust");
+// No heap allocation for ≤ 4 items
+```
+
+## Write! Over format!
+
+```rust
+use std::fmt::Write;
+
+// Bad: allocates a new String every time
+let s = format!("key={} val={}", key, val);
+
+// Good: write into pre-allocated buffer, clear and reuse
+let mut buf = String::with_capacity(128);
+for (key, val) in &map {
+    buf.clear();
+    write!(buf, "key={key} val={val}").unwrap();
+    send(&buf);
+}
+```
+
+## Entry API for HashMap
+
+```rust
+// Bad: two lookups
+if let Some(v) = map.get_mut(&k) { *v += 1; } else { map.insert(k, 1); }
+
+// Good: single lookup
+*map.entry(k).or_insert(0) += 1;
+```
+
+## Struct Size — Keep It Small
+
+```rust
+use std::mem::size_of;
+
+// Catch size regressions at compile time
+const _: () = assert!(size_of::<MyEvent>() <= 64);
+
+// Large enum variant → box it
+enum Message {
+    Ping,
+    Text(String),
+    // HugeThing(VeryLargeStruct), // Makes ALL variants huge!
+    HugeThing(Box<VeryLargeStruct>), // Pointer-sized, heap only when needed
+}
+```
+
 ## Quick Checklist
 
 - [ ] Profiled to find actual bottleneck?
@@ -431,5 +507,14 @@ fn simd_process(data: &[f32]) { ... }
 - [ ] Using iterators over index loops?
 - [ ] Using appropriate data structures?
 - [ ] Benchmarked before and after?
+- [ ] No intermediate `.collect()` in hot paths?
+- [ ] Using entry API for HashMap inserts?
+- [ ] Considered SmallVec or arena for short-lived allocations?
 
-See `references/` for deep dives on specific topics.
+## References
+
+- [The Rust Performance Book](https://nnethercote.github.io/perf-book/)
+- [bumpalo](https://docs.rs/bumpalo) — arena allocator
+- [smallvec](https://docs.rs/smallvec)
+- [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph)
+- [samply](https://github.com/mstange/samply) — cross-platform profiler
