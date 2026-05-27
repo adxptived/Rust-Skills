@@ -14,6 +14,13 @@ description: |
   Trigger for any Axum HTTP API development question.
 ---
 
+
+
+## Quick Navigation
+
+- [references/routing_extractors.md](references/routing_extractors.md)
+- [references/middleware_state.md](references/middleware_state.md)
+
 # Axum Web Framework
 
 Axum is the Tower-native, Tokio-first HTTP framework. It composes with any Tower middleware and has zero magic — handlers are plain async functions.
@@ -370,6 +377,34 @@ async fn handler(
 async fn handler(Path((user_id, post_id)): Path<(u64, u64)>) {}
 // Route: "/users/:user_id/posts/:post_id"
 ```
+
+## Anti-Patterns
+
+```rust
+// Bad: body extractor before other extractors; later extractors cannot read request parts.
+async fn bad(Json(body): Json<Input>, Path(id): Path<u64>) {}
+
+// Good: body-consuming extractor last.
+async fn good(Path(id): Path<u64>, Json(body): Json<Input>) {}
+```
+
+```rust
+// Bad: cloning a pool wrapper manually per request.
+struct AppState { db: Pool<Postgres> }
+
+// Good: cheap Clone state; expensive resources are internally shared or wrapped in Arc.
+#[derive(Clone)]
+struct AppState { db: Arc<Pool<Postgres>> }
+```
+
+## Production Checklist
+
+- Put body extractors last in handler signatures.
+- Keep `AppState` cheap to clone; use `Arc` for expensive shared resources.
+- Convert domain errors through one `IntoResponse` path.
+- Add `TraceLayer`, request IDs, timeouts, and CORS deliberately.
+- Exercise routes through `Router::oneshot` or real listener integration tests.
+- Verify graceful shutdown drains in-flight requests.
 
 ## References
 

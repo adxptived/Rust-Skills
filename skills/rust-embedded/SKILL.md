@@ -13,6 +13,13 @@ description: |
   Trigger for any embedded/no_std Rust question.
 ---
 
+
+
+## Quick Navigation
+
+- [references/no_std.md](references/no_std.md)
+- [references/drivers_hal.md](references/drivers_hal.md)
+
 # Embedded Rust
 
 > On embedded targets, safety guarantees matter even more — no OS to catch your mistakes.
@@ -355,6 +362,40 @@ cargo build --target thumbv7em-none-eabihf --release
 # Flash with probe-rs
 probe-rs run --chip STM32F411CEUx target/thumbv7em-none-eabihf/release/firmware
 ```
+
+## Anti-Patterns
+
+```rust
+// Bad: blocking forever in an interrupt handler.
+#[interrupt]
+fn USART1() {
+    while !tx_ready() {}
+    send_byte(0x42);
+}
+
+// Good: keep ISRs short; signal work to the main loop or executor.
+#[interrupt]
+fn USART1() {
+    EVENTS.signal(Event::UartReady);
+}
+```
+
+```rust
+// Bad: heap-dependent design in constrained no_std firmware.
+let mut log = String::new();
+
+// Good: fixed-capacity buffers make failure explicit.
+let mut log: heapless::String<128> = heapless::String::new();
+```
+
+## Bring-Up Checklist
+
+- Confirm target triple, linker script, memory layout, and probe configuration.
+- Start with GPIO blink before enabling clocks, DMA, networking, or RTOS features.
+- Keep interrupt handlers bounded; defer work to tasks or main loop.
+- Use `defmt`/RTT logging in debug builds and size-check release builds.
+- Model peripheral ownership so two drivers cannot own the same register block.
+- Test HAL-independent logic on host with normal unit tests.
 
 ## References
 

@@ -14,6 +14,13 @@ description: |
   Trigger for any Rust CLI or terminal application question.
 ---
 
+
+
+## Quick Navigation
+
+- [references/arg_parsing.md](references/arg_parsing.md)
+- [references/ux_feedback.md](references/ux_feedback.md)
+
 # Rust CLI Development
 
 Build fast, reliable command-line tools in Rust. The ecosystem is excellent: clap for parsing, ratatui for TUI, tracing for observability.
@@ -446,6 +453,41 @@ cargo install cargo-dist
 cargo dist init
 cargo dist build
 ```
+
+## Anti-Patterns
+
+```rust
+// Bad: prints errors and exits deep inside command logic.
+fn run() {
+    eprintln!("failed");
+    std::process::exit(1);
+}
+
+// Good: return typed errors; main owns presentation and exit code.
+fn run() -> Result<(), CliError> {
+    do_work()?;
+    Ok(())
+}
+```
+
+```rust
+// Bad: progress bars in non-interactive logs.
+ProgressBar::new(total);
+
+// Good: gate TUI/progress behavior on terminal detection.
+if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
+    ProgressBar::new(total);
+}
+```
+
+## Release Checklist
+
+- Keep parsing in `cli.rs`; keep business logic testable without clap.
+- Return errors from commands; map them to user-facing messages once.
+- Respect `--quiet`, `--verbose`, and non-interactive CI output.
+- Add integration tests with `assert_cmd` and `predicates`.
+- Generate shell completions and document config precedence.
+- Test install artifacts on at least one target per supported OS family.
 
 ## References
 

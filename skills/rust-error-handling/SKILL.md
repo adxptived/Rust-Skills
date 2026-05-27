@@ -15,6 +15,13 @@ description: |
   Trigger for ANY Rust error handling question, even simple "how do I handle this error".
 ---
 
+
+
+## Quick Navigation
+
+- [references/libraries.md](references/libraries.md)
+- [references/applications.md](references/applications.md)
+
 # Rust Error Handling
 
 Complete guide to idiomatic error handling in Rust, from basics to production patterns.
@@ -465,6 +472,28 @@ let value = option.expect("value set during initialization");
 let value = option.ok_or(Error::MissingValue)?;
 ```
 
+## Formatting & Best Practices
+
+### 1. Lowercase Error Messages
+Standard library convention states that error messages returned by `std::fmt::Display` implementations or in `anyhow` contexts must be written in lowercase and not end in trailing punctuation (e.g. no periods or exclamation marks).
+```rust
+// BAD: Upper case and trailing period
+let err = anyhow!("Failed to process transaction.");
+
+// GOOD: Lowercase, no punctuation
+let err = anyhow!("failed to process transaction");
+```
+
+### 2. Error Source Chaining
+When defining custom errors, always annotate the lower-level error causing the failure with `#[source]` so that the backtrace or debug logs can chain down to the original root cause.
+```rust
+#[derive(thiserror::Error, Debug)]
+pub enum DatabaseError {
+    #[error("connection failed")]
+    ConnectionFailed(#[source] sqlx::Error),
+}
+```
+
 ## Quick Reference
 
 | Crate | Use For | Error Type |
@@ -480,3 +509,21 @@ let value = option.ok_or(Error::MissingValue)?;
 | `.ok_or(err)` | Option → Result |
 | `.map_err(f)` | Transform error |
 | `.unwrap_or(v)` | Default value |
+
+## Production Checklist
+
+- Libraries expose typed errors with `thiserror` or manual `Error` implementations.
+- Applications add context at IO, parsing, network, and process boundaries.
+- Error messages are lowercase and omit trailing punctuation.
+- `unwrap`/`expect` is limited to tests, examples, and documented invariants.
+- Error chains preserve sources for observability and debugging.
+- Public APIs document expected failure modes and panic behavior.
+
+## References
+
+- [Rust Book: Recoverable Errors with Result](https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html)
+- [std::error::Error](https://doc.rust-lang.org/std/error/trait.Error.html)
+- [thiserror](https://docs.rs/thiserror)
+- [anyhow](https://docs.rs/anyhow)
+
+

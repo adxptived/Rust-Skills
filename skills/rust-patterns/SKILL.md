@@ -637,3 +637,18 @@ impl Animal for Dog {
 | Compile-time state validation | Typestate |
 | Swappable algorithms | Strategy |
 | Undoable operations | Command |
+
+## Pattern Checklist
+
+- Name the problem before choosing a pattern.
+- Prefer plain functions and enums before trait-object abstractions.
+- Use builders when construction has optional fields, validation, or growth pressure.
+- Use typestate only when compile-time state prevents real misuse.
+- Keep RAII guards small and obvious; document side effects in `Drop`.
+- Test pattern examples for both valid paths and misuse they are meant to prevent.
+
+## References
+
+- [Rust Design Patterns](https://rust-unofficial.github.io/patterns/)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+- [The Rust Programming Language: Traits](https://doc.rust-lang.org/book/ch10-02-traits.html)

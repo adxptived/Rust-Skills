@@ -14,6 +14,13 @@ description: |
   Trigger when the question is about crates, tooling, or project configuration.
 ---
 
+
+
+## Quick Navigation
+
+- [references/cargo_config.md](references/cargo_config.md)
+- [references/clippy_lints.md](references/clippy_lints.md)
+
 # Rust Ecosystem
 
 The essential crates, tools, and patterns for productive Rust development.
@@ -167,9 +174,9 @@ use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(feature = "tls")] {
         use rustls::ClientConfig;
-        fn make_connector() -> ClientConnector { todo!() }
+        fn make_connector() -> ClientConnector { ClientConnector::new() }
     } else {
-        fn make_connector() -> PlainConnector { todo!() }
+        fn make_connector() -> PlainConnector { PlainConnector::new() }
     }
 }
 ```
@@ -379,6 +386,36 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+## Anti-Patterns
+
+```toml
+# Bad: default features silently pull in async runtimes, TLS stacks, or native deps.
+serde = "1"
+reqwest = "0.12"
+
+# Good: choose feature surface explicitly.
+serde = { version = "1", features = ["derive"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+```
+
+```bash
+# Bad: publish without checking packaged contents.
+cargo publish
+
+# Good: inspect and dry-run first.
+cargo package --list
+cargo publish --dry-run
+```
+
+## Maintenance Checklist
+
+- Pin MSRV in docs and CI if the crate promises one.
+- Audit default features for transitive dependency and compile-time impact.
+- Run `cargo tree -d` before adding crates that may duplicate versions.
+- Run `cargo publish --dry-run` and inspect `cargo package --list`.
+- Use workspace-level dependencies for shared versions.
+- Keep clippy, fmt, test, audit, and docs checks in CI.
 
 ## References
 

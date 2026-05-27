@@ -130,7 +130,7 @@ while let Ok(msg) = rx.try_recv() {
 
 ## Oneshot (Single Value)
 
-### Basic Usage
+### Oneshot Basics
 
 ```rust
 use tokio::sync::oneshot;
@@ -215,7 +215,7 @@ match timeout(Duration::from_secs(5), rx).await {
 
 ## Broadcast (Multi-Consumer)
 
-### Basic Usage
+### Broadcast Basics
 
 ```rust
 use tokio::sync::broadcast;

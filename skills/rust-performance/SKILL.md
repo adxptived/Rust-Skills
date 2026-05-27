@@ -22,6 +22,7 @@ Comprehensive guide to profiling, measuring, and optimizing Rust code. Based on 
 - **references/profiling.md** - Profiling tools and techniques
 - **references/allocations.md** - Reducing heap allocations
 - **references/concurrency.md** - Parallel and async optimization
+- **references/compiler_optimizations.md** - Release profiles, LTO, PGO, CPU targets
 
 ## Golden Rules
 
@@ -497,6 +498,39 @@ enum Message {
 }
 ```
 
+## Advanced Compiler Optimizations
+
+### 1. Compile with CPU Native Target
+In release mode, use `target-cpu=native` to allow the compiler to generate machine instructions specifically optimized for the host CPU (enabling AVX, SSE4, etc.).
+```bash
+RUSTFLAGS="-C target-cpu=native" cargo build --release
+```
+
+### 2. Instruct the Compiler on Cold Paths
+Mark rarely executed logic (like initialization, configuration loading, or panic routes) with the `#[cold]` attribute. This instructs the compiler to optimize the layout of code instructions to prioritize hot execution flows.
+```rust
+#[cold]
+fn parse_dev_configurations() {
+    // rarely called; keeps instruction caches clean
+}
+```
+
+### 3. Explicit SIMD Vectorization
+For high-performance numerical routines, consider using `std::simd` to process multiple elements in parallel.
+```rust
+#![feature(portable_simd)]
+use std::simd::f32x4;
+
+pub fn add_vectors(a: &[f32; 4], b: &[f32; 4]) -> [f32; 4] {
+    let sa = f32x4::from_slice(a);
+    let sb = f32x4::from_slice(b);
+    let sum = sa + sb;
+    let mut out = [0.0; 4];
+    sum.copy_to_slice(&mut out);
+    out
+}
+```
+
 ## Quick Checklist
 
 - [ ] Profiled to find actual bottleneck?
@@ -518,3 +552,4 @@ enum Message {
 - [smallvec](https://docs.rs/smallvec)
 - [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph)
 - [samply](https://github.com/mstange/samply) — cross-platform profiler
+

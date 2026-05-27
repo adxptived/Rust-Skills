@@ -14,6 +14,13 @@ description: |
   Trigger for OS thread concurrency questions (use rust-async for Tokio/async).
 ---
 
+
+
+## Quick Navigation
+
+- [references/sync_primitives.md](references/sync_primitives.md)
+- [references/lockless.md](references/lockless.md)
+
 # Rust Concurrency
 
 Rust's ownership model prevents data races at compile time. If it compiles, it's data-race-free.
@@ -374,6 +381,15 @@ thread::spawn(move || {
 });
 done_rx.recv().unwrap(); // Wait for completion
 ```
+
+## Review Checklist
+
+- Prefer message passing or ownership transfer before shared mutable state.
+- Use bounded channels when producers can outpace consumers.
+- Keep lock scopes small and never hold locks across blocking operations.
+- Document lock ordering when multiple locks are unavoidable.
+- Use atomics only with a stated ordering invariant.
+- Model-check custom synchronization with `loom` before trusting tests.
 
 ## References
 

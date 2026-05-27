@@ -12,6 +12,13 @@ description: |
   Trigger for ANY ownership/borrow/lifetime error or question.
 ---
 
+
+
+## Quick Navigation
+
+- [references/lifetimes.md](references/lifetimes.md)
+- [references/borrow_checker.md](references/borrow_checker.md)
+
 # Rust Ownership & Lifetimes
 
 > The borrow checker is a design tool, not an obstacle. When it pushes back, rethink data ownership.
@@ -250,6 +257,28 @@ fn good() -> String {
 }
 ```
 
+## Special Patterns
+
+### 1. Conditional Ownership with Cow
+Use `std::borrow::Cow` (Clone-on-Write) when a function can accept either a borrowed or owned representation, only allocating when write/mutation is required.
+```rust
+use std::borrow::Cow;
+
+fn sanitize_username<'a>(username: &'a str) -> Cow<'a, str> {
+    if username.chars().all(|c| c.is_lowercase()) {
+        Cow::Borrowed(username) // Zero allocation
+    } else {
+        Cow::Owned(username.to_lowercase()) // Allocates only when uppercase exists
+    }
+}
+```
+
+### 2. Interior Mutability: RefCell vs Mutex
+Use interior mutability structures to allow mutating data through immutable (`&T`) references.
+- **Single-threaded**: Use `RefCell<T>` (checked at runtime; panics on dynamic borrow conflicts).
+- **Multi-threaded**: Use `Mutex<T>` (blocks threads dynamically) or `RwLock<T>` (if reads dominate writes).
+- Prefer cell-types (`Cell<T>`) for simple copyable primitives (`i32`, `bool`) to bypass borrow checker checks entirely.
+
 ## Checklist: Before Cloning
 
 - [ ] Does the callee actually need ownership, or just to read?
@@ -264,3 +293,4 @@ fn good() -> String {
 - [The Rust Reference — Lifetimes](https://doc.rust-lang.org/reference/lifetimes.html)
 - [Rustonomicon — Lifetimes in depth](https://doc.rust-lang.org/nomicon/lifetimes.html)
 - [common-rust-lifetime-misconceptions](https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md) — essential reading
+

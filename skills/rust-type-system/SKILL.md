@@ -13,6 +13,13 @@ description: |
   Trigger when the user wants the compiler to enforce invariants.
 ---
 
+
+
+## Quick Navigation
+
+- [references/typestate.md](references/typestate.md)
+- [references/phantom_markers.md](references/phantom_markers.md)
+
 # Rust Type-Driven Design
 
 > Make invalid states unrepresentable. If the compiler can catch it, don't leave it to runtime.
@@ -326,6 +333,36 @@ pub struct NonZeroU32(u32);
 // Useful for: FFI safety, optimization, zero-overhead wrappers
 ```
 
+## The Never Type (`!`)
+Use the never type `!` to indicate computations that diverge (i.e. never return). It can be coerced to any other type.
+```rust
+fn loop_forever() -> ! {
+    loop {
+        // never returns
+    }
+}
+```
+
+## PhantomData Marker Types
+Use `std::marker::PhantomData` to tell the compiler that a struct behaves as if it owns a value of type `T` even if it only uses it at compile time (e.g. for lifetime bounds or variance assertions).
+```rust
+use std::marker::PhantomData;
+
+pub struct Serializer<T> {
+    format: String,
+    _marker: PhantomData<T>, // type-level association
+}
+
+impl<T> Serializer<T> {
+    pub fn new(format: String) -> Self {
+        Self {
+            format,
+            _marker: PhantomData,
+        }
+    }
+}
+```
+
 ## Pattern Selection Guide
 
 | Need | Pattern |
@@ -339,8 +376,40 @@ pub struct NonZeroU32(u32);
 | Future-proof enum | `#[non_exhaustive]` |
 | Generic type info, no data | PhantomData |
 
+## Anti-Patterns
+
+```rust
+// Bad: boolean flags allow invalid combinations and unclear call sites.
+fn connect(use_tls: bool, verify_cert: bool) {}
+connect(false, true);
+
+// Good: encode modes as named variants.
+enum TlsMode { Disabled, InsecureForLocalDev, Verified }
+fn connect(tls: TlsMode) {}
+```
+
+```rust
+// Bad: public raw IDs are easy to swap.
+fn load(user_id: u64, order_id: u64) {}
+
+// Good: newtypes prevent accidental cross-domain use.
+struct UserId(u64);
+struct OrderId(u64);
+fn load(user_id: UserId, order_id: OrderId) {}
+```
+
+## Design Checklist
+
+- Use newtypes for domain IDs, units, validated strings, and external identifiers.
+- Prefer enums over stringly-typed or boolean state.
+- Use typestate only when it prevents real misuse at compile time.
+- Keep marker types zero-sized and private unless downstream users need them.
+- Document invariants that unsafe code or FFI depends on.
+- Add compile-fail examples or tests for APIs whose safety comes from type restrictions.
+
 ## References
 
 - [Rust API Guidelines — Type Safety](https://rust-lang.github.io/api-guidelines/type-safety.html)
 - [Parse, don't validate](https://lexi-lambda.github.io/blog/2019/11/05/parse-don-t-validate/)
 - [The Typestate Pattern in Rust](https://cliffle.com/blog/rust-typestate/)
+

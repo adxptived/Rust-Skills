@@ -471,60 +471,6 @@ where
 }
 ```
 
-## Anti-Patterns
-
-### Holding Locks Across Await
-
-```rust
-// BAD: Lock held across await
-let guard = mutex.lock().await;
-some_async_operation().await; // Lock still held!
-drop(guard);
-
-// GOOD: Clone and release
-let data = {
-    let guard = mutex.lock().await;
-    guard.clone()
-};
-some_async_operation_with(data).await;
-```
-
-### Blocking in Async Context
-
-```rust
-// BAD: Blocks the async runtime
-async fn bad() {
-    std::thread::sleep(Duration::from_secs(1)); // Blocks!
-    std::fs::read_to_string("file.txt"); // Blocks!
-}
-
-// GOOD: Use async equivalents
-async fn good() {
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    tokio::fs::read_to_string("file.txt").await;
-}
-
-// Or spawn_blocking for unavoidable blocking
-let result = tokio::task::spawn_blocking(|| {
-    blocking_library_call()
-}).await?;
-```
-
-### Creating Runtime in Async Context
-
-```rust
-// BAD: Nested runtime
-async fn bad() {
-    tokio::runtime::Runtime::new().unwrap()
-        .block_on(async { ... }); // Panic or deadlock!
-}
-
-// GOOD: Just await
-async fn good() {
-    some_future().await;
-}
-```
-
 ## Structured Concurrency: JoinSet
 
 Manage a dynamic set of tasks with automatic cleanup:
@@ -668,6 +614,30 @@ async fn good() {
 }
 ```
 
+## Best Practices from the Field
+
+### 1. Always Prefer Bounded Channels
+Avoid `unbounded` channels (like `tokio::sync::mpsc::unbounded_channel`) in production pipelines. Without backpressure, slow consumers will cause memory leaks. Always specify a bound (capacity):
+```rust
+// GOOD: Capacity is capped; send will block cooperatively or fail when full
+let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+```
+
+### 2. Use JoinSet for Dynamic Task Groups
+Instead of collecting handles and iterating or using unstable `futures::future::join_all`, use `tokio::task::JoinSet` to manage lifetimes of dynamically spawned concurrent workers.
+```rust
+use tokio::task::JoinSet;
+
+let mut set = JoinSet::new();
+for i in 0..10 {
+    set.spawn(async move { i * 2 });
+}
+
+while let Some(res) = set.join_next().await {
+    println!("Task finished: {:?}", res?);
+}
+```
+
 ## Debugging Tips
 
 1. **Use `#[tokio::test]`** for async tests
@@ -676,3 +646,20 @@ async fn good() {
 4. **Check for dropped futures** (no `.await`)
 5. **Look for blocking calls** in async code
 6. **`CancellationToken` over `Arc<AtomicBool>`** — atomic flags don't wake sleeping tasks
+
+## Production Checklist
+
+- Bound channels and queues to preserve backpressure.
+- Use `JoinSet` or structured task ownership for dynamic task groups.
+- Add cancellation paths for long-running tasks.
+- Avoid blocking calls on runtime worker threads; use async APIs or `spawn_blocking`.
+- Instrument tasks with `tracing` spans and inspect with `tokio-console` when needed.
+- Test shutdown and cancellation, not only happy-path completion.
+
+## References
+
+- [Tokio tutorial](https://tokio.rs/tokio/tutorial)
+- [Async Rust book](https://rust-lang.github.io/async-book/)
+- [tokio-util CancellationToken docs](https://docs.rs/tokio-util/latest/tokio_util/sync/struct.CancellationToken.html)
+- [tokio-console](https://github.com/tokio-rs/console)
+

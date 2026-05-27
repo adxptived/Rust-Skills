@@ -405,3 +405,19 @@ See `references/` for deep dives:
 - **traits.md** - Trait system, generics, trait objects
 - **error-handling.md** - Complete error handling guide
 - **idioms.md** - Idiomatic patterns and anti-patterns
+
+## Review Checklist
+
+- Prefer borrowing in function parameters unless ownership is required.
+- Make invalid states unrepresentable with enums, newtypes, or typed builders.
+- Use `Result` for expected failures and reserve panics for bugs/invariants.
+- Derive standard traits where they improve debugging, testing, or ergonomics.
+- Keep lifetimes tied to real borrowed data; do not add annotations as decoration.
+- Prefer iterator adapters when they clarify ownership and control flow.
+
+## References
+
+- [The Rust Programming Language](https://doc.rust-lang.org/book/)
+- [Rust Reference](https://doc.rust-lang.org/reference/)
+- [Rust by Example](https://doc.rust-lang.org/rust-by-example/)
+- [std documentation](https://doc.rust-lang.org/std/)

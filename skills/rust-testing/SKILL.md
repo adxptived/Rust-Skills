@@ -13,6 +13,13 @@ description: |
   Trigger for any Rust testing question.
 ---
 
+
+
+## Quick Navigation
+
+- [references/unit_integration.md](references/unit_integration.md)
+- [references/mocks_property.md](references/mocks_property.md)
+
 # Rust Testing
 
 Testing in Rust is first-class: cargo test runs unit + integration tests, doctests are auto-run, and the ecosystem has excellent tools for every testing need.
@@ -426,6 +433,59 @@ pub fn parse_version(s: &str) -> Option<(u32, u32, u32)> {
 cargo test --doc  # Run only doctests
 ```
 
+## Best Practices
+
+### 1. Arrange-Act-Assert (AAA) Structure
+Always split your test blocks visually into three distinct phases for maximum readability:
+- **Arrange**: Set up requirements, parameters, and mock states.
+- **Act**: Call the unit or method under test.
+- **Assert**: Validate results against expected outcomes.
+
+```rust
+#[test]
+fn withdraw_reduces_account_balance() {
+    // Arrange
+    let mut account = Account::new(dec!(100.00));
+    let amount = dec!(40.00);
+
+    // Act
+    account.withdraw(amount).unwrap();
+
+    // Assert
+    assert_eq!(account.balance(), dec!(60.00));
+}
+```
+
+### 2. RAII Test Fixtures for Setup/Cleanup
+Use structs implementing the `Drop` trait to handle setup and cleanup actions, ensuring database connections, file handles, or mock servers are torn down even if the test panics.
+
+```rust
+struct TestDbFixture {
+    pub conn_str: String,
+}
+
+impl TestDbFixture {
+    fn new() -> Self {
+        let conn_str = format!("test_db_{}", uuid::Uuid::new_v4());
+        // Initialize test database...
+        Self { conn_str }
+    }
+}
+
+impl Drop for TestDbFixture {
+    fn drop(&mut self) {
+        // Tear down test database...
+    }
+}
+
+#[test]
+fn query_returns_inserted_record() {
+    let fixture = TestDbFixture::new();
+    // database operations using fixture.conn_str ...
+    // automatically dropped at scope exit
+}
+```
+
 ## Running Tests
 
 ```bash
@@ -450,6 +510,15 @@ cargo install cargo-llvm-cov
 cargo llvm-cov --html
 ```
 
+## Test Suite Checklist
+
+- Unit-test pure logic close to the module under test.
+- Put public behavior and cross-module flows in `tests/` integration tests.
+- Use property tests for parsers, serializers, state machines, and invariants.
+- Keep mocks at process or trait boundaries, not around simple domain logic.
+- Add regression tests before fixing bugs.
+- Run doctests for public examples that users may copy.
+
 ## References
 
 - [Rust Book: Testing](https://doc.rust-lang.org/book/ch11-00-testing.html)
@@ -457,3 +526,4 @@ cargo llvm-cov --html
 - [proptest](https://docs.rs/proptest) + [proptest guide](https://proptest-rs.github.io/proptest/proptest/index.html)
 - [insta](https://insta.rs/)
 - [criterion](https://bheisler.github.io/criterion.rs/book/)
+
